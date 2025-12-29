@@ -1,4 +1,4 @@
-# 엔터프라이즈 정적 CMS 프로젝트 개발 현황 (2025-12-30, Phase 4 완료 및 테스트 준비)
+# 엔터프라이즈 정적 CMS 프로젝트 개발 현황 (2025-12-30, Phase 6 완료)
 
 이 문서는 엔터프라이즈 정적 CMS 프로젝트의 현재 개발 현황을 요약합니다.
 
@@ -19,7 +19,7 @@
     - [x] `tenants`, `admins`, `categories`, `articles`의 모든 CRUD API를 실제 D1 데이터베이스 쿼리 로직으로 **완전 대체**.
 
 - [x] **`renderer`: 기본 구현**
-  - [x] Hono 기반 프로젝트 초기화 및 Cloudflare Pages 배포 구조 설정.
+  - [x] Hono 기반 프로젝트 초기화 및 Cloudflare Pages 배포 환경 설정.
   - [x] `cms-api` 연동을 위한 기본 Fetcher 로직 골격 구현.
 
 ## 기술 부채 및 해결이 필요한 이슈 (Technical Debt)
@@ -35,6 +35,10 @@
 - [ ] **환경 변수 관리 최적화**
   - **현황**: `renderer`의 `API_URL` 등이 하드코딩되어 있거나 관리가 미흡함.
   - **해결**: `wrangler.toml` 환경별 설정 분리 및 `secrets` 전환.
+
+## 배포 아키텍처 (Deployment Architecture)
+- **API 서버 (Backend)**: Cloudflare Workers (`apps/cms-api`)
+- **프론트엔드/렌더러 (Frontend)**: Cloudflare Pages (연동 및 배포 진행 중)
 
 ## 향후 로드맵 (Roadmap)
 
@@ -57,6 +61,22 @@
 - [x] **R2 스토리지 연동**: `media.ts`를 통한 이미지 업로드 API 구현 완료.
 - [x] **이미지 최적화**: 프론트엔드(Admin UI)에서 Canvas API를 이용한 WebP 변환 및 업로드 로직 구현 완료.
 - [x] **Admin UI**: 로그인, 대시보드, 게시글 관리, 미디어 라이브러리 기능 구현 및 API 연동 완료.
+
+### Phase 5: Renderer 완성 및 Pages 배포 (Done)
+- [x] **Renderer 실구현**: `cms-api`의 Public API를 호출하여 테넌트별 블로그 메인 및 상세 페이지 구현 완료.
+- [x] **SEO 최적화**: 게시글 상세 페이지 동적 메타 태그 생성 로직 추가.
+- [x] **테넌트 커스텀 테마**: Cloudflare KV를 연동하여 테넌트별 색상 및 로고 적용 로직 구현.
+- [x] **테넌트 설정 관리 API**: 테넌트 테마 및 도메인 설정을 D1에 저장하고 KV에 동기화하는 API 구현 완료 (도메인 변경 시 이전 매핑 삭제 로직 포함).
+- [x] **Admin UI 설정 페이지**: 테넌트 설정을 변경할 수 있는 UI 구현 완료.
+- [x] **Markdown 에디터**: 게시글 작성 시 EasyMDE를 통한 Markdown 편집 및 미리보기 기능 추가.
+- [x] **게시글 수정 기능**: 기존 데이터를 불러와 에디터에 세팅하고 수정하는 기능 구현 완료.
+- [x] **게시글 삭제 기능**: 목록 페이지에서 게시글을 삭제하는 기능 구현 완료.
+- [x] **Markdown 렌더링**: Renderer에서 Markdown 본문을 HTML로 변환하여 출력하는 로직 추가.
+- [x] **Pages 배포 설정**: Cloudflare Pages 환경 설정 및 wrangler.toml 구성 완료.
+
+### Phase 6: 성능 및 인프라 최적화 (Done)
+- [x] **R2 이미지 리사이징**: Worker를 통한 동적 이미지 서빙 및 쿼리 기반 리사이징 로직 구현.
+- [x] **LCP 최적화**: Renderer 목록 페이지에서 최적화된 크기의 썸네일을 불러오도록 개선.
 
 ## 수동 작업 체크리스트
 

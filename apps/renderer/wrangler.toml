@@ -1,3 +1,11 @@
-name = "pbr2"
-main = "src/index.ts"
+name = "bpr-renderer"
 compatibility_date = "2024-07-12"
+pages_build_output_dir = "dist"
+
+# 테넌트 데이터를 공유하기 위해 cms-api와 동일한 KV ID를 바인딩합니다.
+[[kv_namespaces]]
+binding = "KV"
+id = "6555098de28846408be31acc085153f0"
+
+[vars]
+API_URL = "https://pbr1.your-subdomain.workers.dev" # 실제 배포된 cms-api URL로 변경 필요

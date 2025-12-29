@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { cache } from 'hono/cache'
 import { tenantIdentification, authMiddleware, Env as MiddlewareEnv } from './middleware' // Env 임포트
 import auth from './auth'
@@ -7,13 +8,14 @@ import admins from './admins'
 import articles from './articles'
 import categories from './categories'
 import media from './media'
+import tenantSettings from './tenant-settings'
 import { getDb } from './db' // getDb 임포트
 import { articles as articlesTable } from '@bprproto/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import adminUi from './admin'
 
 // MiddlewareEnv 타입에서 Bindings를 가져옵니다.
-type AppEnv = {
+export type AppEnv = {
     Bindings: MiddlewareEnv['Bindings'] & {
         R2_BUCKET: R2Bucket; // R2 바인딩 추가
     };
@@ -23,6 +25,9 @@ type AppEnv = {
 }
 
 const app = new Hono<AppEnv>()
+
+// Cloudflare Pages 프론트엔드와의 통신을 위한 CORS 설정
+app.use('*', cors())
 
 // Drizzle DB 인스턴스를 생성하고 context에 주입하는 미들웨어
 app.use('*', async (c, next) => {
@@ -82,6 +87,7 @@ api.route('/admins', admins)
 api.route('/articles', articles)
 api.route('/categories', categories)
 api.route('/media', media)
+api.route('/settings', tenantSettings)
 
 app.route('/api', api)
 

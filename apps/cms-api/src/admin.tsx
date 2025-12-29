@@ -1,17 +1,17 @@
-/** @jsx jsx */
+/** @jsxImportSource hono/jsx */
 import { Hono } from 'hono'
-import { jsx } from 'hono/jsx'
-import { AppEnv } from '../index'
+import { AppEnv } from './index'
 
 const admin = new Hono<AppEnv>()
 
-const Layout = ({ title, children }: { title: string; children: any }) => (
+const Layout = ({ title, headContent, children }: { title: string; headContent?: any; children: any }) => (
     <html lang="ko">
         <head>
             <meta charset="UTF-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <title>{title} - BPR Admin</title>
             <script src="https://cdn.tailwindcss.com"></script>
+            {headContent}
         </head>
         <body class="bg-gray-100 min-h-screen">
             {children}
@@ -88,6 +88,11 @@ admin.get('/dashboard', (c) => {
                         <p class="text-gray-600 text-sm mb-4">이미지를 업로드하고 관리합니다.</p>
                         <a href="/admin/media" class="text-blue-600 hover:underline">이동하기 &rarr;</a>
                     </div>
+                    <div class="bg-white p-6 rounded shadow">
+                        <h3 class="font-bold mb-2">사이트 설정</h3>
+                        <p class="text-gray-600 text-sm mb-4">테마, 도메인 등 사이트 전반의 설정을 관리합니다.</p>
+                        <a href="/admin/settings" class="text-blue-600 hover:underline">이동하기 &rarr;</a>
+                    </div>
                 </div>
             </main>
             <script dangerouslySetInnerHTML={{ __html: `
@@ -118,6 +123,7 @@ admin.get('/articles', (c) => {
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">제목</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">작성일</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">관리</th>
                             </tr>
                         </thead>
                         <tbody id="articles-list" class="bg-white divide-y divide-gray-200">
@@ -135,13 +141,32 @@ admin.get('/articles', (c) => {
                     const articles = await res.json();
                     const tbody = document.getElementById('articles-list');
                     tbody.innerHTML = articles.map(a => \`
-                        <tr>
-                            <td class="px-6 py-4">\${a.title}</td>
-                            <td class="px-6 py-4">\${a.isPublic ? '공개' : '임시저장'}</td>
-                            <td class="px-6 py-4 text-sm text-gray-500">\${new Date(a.createdAt * 1000).toLocaleDateString()}</td>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 font-medium text-blue-600 cursor-pointer" onclick="location.href='/admin/articles/\${a.id}'">\${a.title}</td>
+                            <td class="px-6 py-4 cursor-pointer" onclick="location.href='/admin/articles/\${a.id}'">\${a.isPublic ? '공개' : '임시저장'}</td>
+                            <td class="px-6 py-4 text-sm text-gray-500 cursor-pointer" onclick="location.href='/admin/articles/\${a.id}'">\${new Date(a.createdAt * 1000).toLocaleDateString()}</td>
+                            <td class="px-6 py-4 text-right text-sm font-medium">
+                                <button onclick="deleteArticle(\${a.id}, '\${a.title.replace(/'/g, "\\\\'")}')" class="text-red-600 hover:text-red-900">삭제</button>
+                            </td>
                         </tr>
                     \`).join('');
                 }
+
+                async function deleteArticle(id, title) {
+                    if (!confirm(\`'\${title}' 게시글을 삭제하시겠습니까?\`)) return;
+                    const token = localStorage.getItem('token');
+                    const res = await fetch('/api/articles/' + id, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (res.ok) {
+                        alert('삭제되었습니다.');
+                        loadArticles();
+                    } else {
+                        alert('삭제 실패');
+                    }
+                }
+
                 loadArticles();
             `}} />
         </Layout>
@@ -150,8 +175,18 @@ admin.get('/articles', (c) => {
 
 // 새 게시글 작성 페이지
 admin.get('/articles/new', (c) => {
+    const head = (
+        <>
+            <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
+            <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+            <style>{`
+                .editor-toolbar { background: white !important; border-color: #d1d5db !important; }
+                .CodeMirror { border-color: #d1d5db !important; border-bottom-left-radius: 0.375rem !important; border-bottom-right-radius: 0.375rem !important; }
+            `}</style>
+        </>
+    )
     return c.html(
-        <Layout title="새 글 작성">
+        <Layout title="새 글 작성" headContent={head}>
             <div class="max-w-4xl mx-auto p-6">
                 <h1 class="text-2xl font-bold mb-6">새 게시글 작성</h1>
                 <form id="article-form" class="space-y-4 bg-white p-6 rounded shadow">
@@ -164,8 +199,8 @@ admin.get('/articles/new', (c) => {
                         <input type="text" name="slug" required placeholder="example-post-title" class="mt-1 block w-full border border-gray-300 rounded-md p-2" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">내용</label>
-                        <textarea name="content" rows={10} class="mt-1 block w-full border border-gray-300 rounded-md p-2"></textarea>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">내용 (Markdown)</label>
+                        <textarea name="content" id="content-editor"></textarea>
                     </div>
                     <div class="flex items-center">
                         <input type="checkbox" name="isPublic" id="isPublic" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
@@ -175,11 +210,20 @@ admin.get('/articles/new', (c) => {
                 </form>
             </div>
             <script dangerouslySetInnerHTML={{ __html: `
+                const easymde = new EasyMDE({ 
+                    element: document.getElementById('content-editor'),
+                    spellChecker: false,
+                    placeholder: "내용을 입력하세요...",
+                    status: false,
+                    minHeight: "300px"
+                });
+
                 document.getElementById('article-form').onsubmit = async (e) => {
                     e.preventDefault();
                     const formData = new FormData(e.target);
                     const data = Object.fromEntries(formData);
                     data.isPublic = formData.get('isPublic') === 'on';
+                    data.content = easymde.value();
                     
                     const res = await fetch('/api/articles', {
                         method: 'POST',
@@ -195,6 +239,103 @@ admin.get('/articles/new', (c) => {
                         alert('저장 실패');
                     }
                 };
+            `}} />
+        </Layout>
+    )
+})
+
+// 게시글 수정 페이지
+admin.get('/articles/:id', (c) => {
+    const id = c.req.param('id');
+    const head = (
+        <>
+            <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
+            <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+            <style>{`
+                .editor-toolbar { background: white !important; border-color: #d1d5db !important; }
+                .CodeMirror { border-color: #d1d5db !important; border-bottom-left-radius: 0.375rem !important; border-bottom-right-radius: 0.375rem !important; }
+            `}</style>
+        </>
+    )
+    return c.html(
+        <Layout title="게시글 수정" headContent={head}>
+            <div class="max-w-4xl mx-auto p-6">
+                <h1 class="text-2xl font-bold mb-6">게시글 수정</h1>
+                <form id="edit-article-form" class="space-y-4 bg-white p-6 rounded shadow">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">제목</label>
+                        <input type="text" name="title" id="edit-title" required class="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">슬러그 (URL)</label>
+                        <input type="text" name="slug" id="edit-slug" required placeholder="example-post-title" class="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">내용 (Markdown)</label>
+                        <textarea name="content" id="edit-content-editor"></textarea>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" name="isPublic" id="edit-isPublic" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                        <label for="edit-isPublic" class="ml-2 block text-sm text-gray-900">즉시 공개</label>
+                    </div>
+                    <div class="flex justify-between">
+                        <button type="button" onclick="history.back()" class="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600">취소</button>
+                        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">수정 완료</button>
+                    </div>
+                </form>
+            </div>
+            <script dangerouslySetInnerHTML={{ __html: `
+                const easymde = new EasyMDE({ 
+                    element: document.getElementById('edit-content-editor'),
+                    spellChecker: false,
+                    placeholder: "내용을 입력하세요...",
+                    status: false,
+                    minHeight: "300px"
+                });
+
+                const articleId = "${id}";
+                const token = localStorage.getItem('token');
+
+                async function loadArticle() {
+                    const res = await fetch('/api/articles/' + articleId, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (!res.ok) {
+                        alert('게시글을 불러오지 못했습니다.');
+                        location.href = '/admin/articles';
+                        return;
+                    }
+                    const article = await res.json();
+                    document.getElementById('edit-title').value = article.title;
+                    document.getElementById('edit-slug').value = article.slug;
+                    document.getElementById('edit-isPublic').checked = article.isPublic === 1 || article.isPublic === true;
+                    easymde.value(article.content || '');
+                }
+
+                document.getElementById('edit-article-form').onsubmit = async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const data = Object.fromEntries(formData);
+                    data.isPublic = document.getElementById('edit-isPublic').checked;
+                    data.content = easymde.value();
+                    
+                    const res = await fetch('/api/articles/' + articleId, {
+                        method: 'PUT',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    if (res.ok) {
+                        alert('수정되었습니다.');
+                        location.href = '/admin/articles';
+                    } else {
+                        alert('수정 실패');
+                    }
+                };
+
+                loadArticle();
             `}} />
         </Layout>
     )
@@ -279,6 +420,102 @@ admin.get('/media', (c) => {
                         uploadBtn.textContent = '최적화 및 업로드';
                     }
                 };
+            `}} />
+        </Layout>
+    )
+})
+
+// 사이트 설정 페이지
+admin.get('/settings', (c) => {
+    return c.html(
+        <Layout title="사이트 설정">
+            <div class="max-w-4xl mx-auto p-6">
+                <h1 class="text-2xl font-bold mb-6">사이트 설정</h1>
+                <form id="settings-form" class="space-y-6 bg-white p-6 rounded shadow">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">사이트 이름</label>
+                        <input type="text" name="name" id="setting-name" required class="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">커스텀 도메인</label>
+                        <input type="text" name="customDomain" id="setting-domain" placeholder="example.com" class="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                        <p class="mt-1 text-xs text-gray-500">Cloudflare Pages에 연결된 도메인을 입력하세요.</p>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h3 class="text-lg font-medium mb-4">테마 설정</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">브랜드 색상 (Primary Color)</label>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <input type="color" id="setting-color-picker" class="h-10 w-10 border-0 p-0 cursor-pointer" />
+                                    <input type="text" name="primaryColor" id="setting-color-text" placeholder="#2563eb" class="block w-full border border-gray-300 rounded-md p-2" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">로고 URL</label>
+                                <input type="text" name="logoUrl" id="setting-logo" placeholder="https://..." class="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition">설정 저장</button>
+                    </div>
+                </form>
+            </div>
+            <script dangerouslySetInnerHTML={{ __html: `
+                const colorPicker = document.getElementById('setting-color-picker');
+                const colorText = document.getElementById('setting-color-text');
+                
+                colorPicker.oninput = (e) => colorText.value = e.target.value;
+                colorText.oninput = (e) => colorPicker.value = e.target.value;
+
+                async function loadSettings() {
+                    const token = localStorage.getItem('token');
+                    const res = await fetch('/api/settings', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (!res.ok) return;
+                    
+                    const data = await res.json();
+                    document.getElementById('setting-name').value = data.name || '';
+                    document.getElementById('setting-domain').value = data.customDomain || '';
+                    
+                    const config = data.config || {};
+                    colorText.value = config.primaryColor || '#2563eb';
+                    colorPicker.value = config.primaryColor || '#2563eb';
+                    document.getElementById('setting-logo').value = config.logoUrl || '';
+                }
+
+                document.getElementById('settings-form').onsubmit = async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const payload = {
+                        name: formData.get('name'),
+                        customDomain: formData.get('customDomain'),
+                        config: {
+                            primaryColor: formData.get('primaryColor'),
+                            logoUrl: formData.get('logoUrl')
+                        }
+                    };
+                    
+                    const res = await fetch('/api/settings', {
+                        method: 'PUT',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + localStorage.getItem('token')
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (res.ok) {
+                        alert('설정이 저장되었습니다.');
+                        location.reload();
+                    } else {
+                        alert('저장 실패');
+                    }
+                };
+
+                loadSettings();
             `}} />
         </Layout>
     )

@@ -4,7 +4,7 @@ import { HTTPException } from 'hono/http-exception'
 import { admins } from '@bprproto/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { AppEnv } from './index'
-import { hashPassword } from './utils/crypto'
+import { hashPassword } from './crypto'
 
 const app = new Hono<AppEnv>()
 

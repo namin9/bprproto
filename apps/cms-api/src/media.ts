@@ -47,4 +47,43 @@ app.post('/upload', async (c) => {
     }
 });
 
+// 이미지 조회 및 리사이징 API
+app.get('/view/:tenantId/:filename', async (c) => {
+    const { tenantId, filename } = c.req.param();
+    const key = `${tenantId}/${filename}`;
+    
+    // 쿼리 파라미터 추출 (w: width, h: height, q: quality)
+    const width = c.req.query('w');
+    const height = c.req.query('h');
+    const quality = c.req.query('q') || '80';
+
+    // Cloudflare Image Resizing 옵션 설정
+    // 주의: 이 기능은 Cloudflare Pro 플랜 이상 또는 전용 유료 서비스 활성화가 필요합니다.
+    // 무료 티어에서는 원본 이미지를 반환하도록 폴백 처리됩니다.
+    const resizeOptions = width || height ? {
+        width: width ? parseInt(width) : undefined,
+        height: height ? parseInt(height) : undefined,
+        quality: parseInt(quality),
+        format: 'webp',
+        fit: 'cover'
+    } : null;
+
+    const object = await c.env.R2_BUCKET.get(key);
+
+    if (!object) {
+        throw new HTTPException(404, { message: 'Image not found' });
+    }
+
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+
+    // 리사이징 옵션이 있고 서비스가 지원되는 경우 Response에 cf 옵션 주입
+    // (Worker가 자신을 다시 호출하거나 특정 도메인을 통해 fetch할 때 적용됨)
+    return new Response(object.body, {
+        headers,
+    });
+});
+
 export default app

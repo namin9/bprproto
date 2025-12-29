@@ -4,7 +4,7 @@ import { admins } from '@bprproto/db/schema' // 공유 스키마에서 admins �
 import { adminSchema } from '@bprproto/types' // 공유 타입에서 adminSchema 임포트
 import { eq, and } from 'drizzle-orm'
 import { AppEnv } from './index'; // index.ts에서 정의한 AppEnv 임포트
-import { hashPassword } from './utils/crypto';
+import { hashPassword } from './crypto';
 
 const app = new Hono<AppEnv>()
 
