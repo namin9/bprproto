@@ -84,3 +84,14 @@
 - [ ] `wrangler d1 execute bpr-db --file=./init.sql` (로컬/원격 DB 초기화)
 - [ ] `wrangler secret put JWT_SECRET` (인증 키 설정)
 - [ ] `wrangler secret put PASSWORD_SALT` (비밀번호 해싱용 솔트 설정)
+
+## 배포 참고 사항 (Deployment Notes)
+
+- **Renderer (Cloudflare Pages)**: Pages 프로젝트(`pbr2`) 배포 시 `wrangler deploy` 대신 `wrangler pages deploy` 명령어를 사용해야 합니다.
+  - **현재 오류 (Authentication error [code: 10000])**: Cloudflare Pages 대시보드의 **Build command**에 `deploy` 명령어가 포함되어 발생한 인증 오류입니다.
+  - **해결 방법**: 
+    1. Cloudflare Pages 대시보드 설정에서 **Build command**를 비우거나 `pnpm build`만 입력하세요. (명령어에 `wrangler`를 넣지 마세요.)
+    2. **Root Directory** 설정:
+       - `bpr1` (Worker): `apps/cms-api`
+       - `bprproto` (Pages): `apps/renderer`
+    3. **Build output directory**: `.` (루트)로 설정하세요.
