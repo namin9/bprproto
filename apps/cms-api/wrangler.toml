@@ -1,0 +1,14 @@
+name = "cms-api"
+main = "src/index.ts"
+compatibility_date = "2024-07-12"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB" # i.e. c.env.DB
+database_name = "bpr-db"
+database_id = "88f19d76-fc8d-4435-9254-f338dfebbeac"
+
+# KV Namespace binding
+[[kv_namespaces]]
+binding = "KV" # i.e. c.env.KV
+id = "6555098de28846408be31acc085153f0"

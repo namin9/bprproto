@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Lint (placeholder)
+        run: echo "Linting..."
+
+      - name: Test (placeholder)
+        run: echo "Testing..."
+
+      - name: Build (placeholder)
+        run: echo "Building..."
+
+      - name: Deploy to Cloudflare (placeholder)
+        if: github.ref == 'refs/heads/main'
+        run: echo "Deploying..."
+        # In a real pipeline, you would use wrangler to deploy.
+        # env:
+        #   CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
