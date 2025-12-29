@@ -45,7 +45,11 @@ const Layout = ({ title, headContent, children, apiUrl }: { title: string; headC
                     const apiUrl = '${apiUrl?.replace(/\/$/, '') || ''}';
                     const fullUrl = url.startsWith('http') ? url : apiUrl + url;
                     let token = localStorage.getItem('accessToken');
-                    const headers = { ...options.headers, 'Authorization': 'Bearer ' + token };
+                    const headers = { 
+                        ...options.headers, 
+                        'Authorization': 'Bearer ' + token,
+                        'x-forwarded-host': window.location.host 
+                    };
                     if (!(options.body instanceof FormData) && !headers['Content-Type']) {
                         headers['Content-Type'] = 'application/json';
                     }
@@ -109,7 +113,10 @@ admin.get('/login', (c) => {
                             const data = Object.fromEntries(formData);
                             const res = await fetch(apiUrl + '/auth/login', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'x-forwarded-host': window.location.host
+                                },
                                 body: JSON.stringify(data)
                             });
                             setLoading(btn, false);
