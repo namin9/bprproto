@@ -1,4 +1,4 @@
-# 엔터프라이즈 정적 CMS 프로젝트 개발 현황 (2025-12-30, 클라우드 배포 테스트 단계)
+# 엔터프라이즈 정적 CMS 프로젝트 개발 현황 (2025-12-30, 배포 설정 최적화 완료)
 
 이 문서는 엔터프라이즈 정적 CMS 프로젝트의 현재 개발 현황을 요약합니다.
 
@@ -72,7 +72,7 @@
 - [x] **게시글 수정 기능**: 기존 데이터를 불러와 에디터에 세팅하고 수정하는 기능 구현 완료.
 - [x] **게시글 삭제 기능**: 목록 페이지에서 게시글을 삭제하는 기능 구현 완료.
 - [x] **Markdown 렌더링**: Renderer에서 Markdown 본문을 HTML로 변환하여 출력하는 로직 추가.
-- [x] **Pages 배포 설정**: Cloudflare Pages 환경 설정 및 wrangler.toml 구성 완료.
+- [x] **Pages 배포 설정**: Vite를 이용한 `_worker.js` 빌드 시스템 구축 및 배포 설정 완료.
 
 ### Phase 6: 성능 및 인프라 최적화 (Done)
 - [x] **R2 이미지 리사이징**: Worker를 통한 동적 이미지 서빙 및 쿼리 기반 리사이징 로직 구현.
@@ -90,15 +90,24 @@
 - [x] **Drizzle Kit 설정**: 마이그레이션 자동화를 위한 `drizzle.config.ts` 구성 완료.
 - [x] **Admin UI UX 고도화**: 토스트 메시지 알림 및 버튼 로딩 상태 구현 완료.
 - [x] **시스템 모니터링 및 통계**: 글로벌 에러 핸들러 도입 및 대시보드 동적 통계 연동 완료.
+- [x] **정적 자산 서빙**: Renderer 앱에서 `public` 폴더 내 자산(이미지, CSS 등) 서빙 설정 완료.
 - [ ] **통합 테스트**: Cloudflare 배포 환경 기반 전체 워크플로우 검증 (진행 중).
 
 ## 배포 참고 사항 (Deployment Notes)
 
-- **Renderer (Cloudflare Pages)**: Pages 프로젝트(`pbr2`) 배포 시 `wrangler deploy` 대신 `wrangler pages deploy` 명령어를 사용해야 합니다.
-  - **빌드 오류 해결**: `pages_build_output_dir`을 `.`으로 설정하여 별도의 빌드 과정 없이 소스 디렉토리를 직접 배포하도록 구성했습니다.
-  - **해결 방법**: 
-    1. Cloudflare Pages 대시보드 설정에서 **Build command**를 비우거나 `pnpm build`만 입력하세요. (명령어에 `wrangler`를 넣지 마세요.)
-    2. **Root Directory** 설정:
-       - `bpr1` (Worker): `apps/cms-api`
-       - `bprproto` (Pages): `apps/renderer`
-    3. **Build output directory**: `.` (루트)로 설정하세요.
+### Cloudflare 대시보드 설정 (Git 연동 시)
+
+| 프로젝트명 | 유형 | Root Directory | Build Command | Output Directory |
+| :--- | :--- | :--- | :--- | :--- |
+| **pbr1** | Worker | `apps/cms-api` | (None) | (None) |
+| **bprproto** | Pages | `apps/renderer` | `pnpm build` | `dist` |
+| **bpr2** | Worker | `apps/renderer` | (None) | (None) |
+
+### 주요 해결 과제
+- **Pages 빌드 오류**: `dist` 디렉토리를 찾지 못하는 문제는 `pnpm build` 명령을 통해 Vite가 `_worker.js`를 생성하도록 하여 해결했습니다.
+- **CORS 및 절대 경로**: `cms-api`에서 미디어 URL을 절대 경로로 반환하도록 수정하여 Pages 도메인에서도 이미지가 정상 출력됩니다.
+
+### 수동 작업 (최초 1회)
+1. Cloudflare 대시보드에서 `pbr1` Worker의 **Settings > Variables**에 `JWT_SECRET`과 `PASSWORD_SALT`를 추가하세요.
+2. `bprproto` Pages의 **Settings > Environment variables**에 `API_URL` (pbr1의 주소)을 추가하세요.
+3. D1 데이터베이스에 테스트용 테넌트와 관리자 데이터를 Console에서 직접 입력하세요.

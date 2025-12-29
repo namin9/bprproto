@@ -1,5 +1,6 @@
 /** @jsxImportSource hono/jsx */
 import { Hono } from 'hono'
+import { serveStatic } from 'hono/cloudflare-pages'
 import { marked } from 'marked'
 import adminUi from '../../cms-api/src/admin'
 
@@ -16,6 +17,9 @@ type TenantTheme = {
 };
 
 const app = new Hono<{ Bindings: Bindings }>()
+
+// 정적 자산 서빙 설정 (/static/* 경로로 public 폴더 내 파일 접근 가능)
+app.use('/static/*', serveStatic())
 
 type SEOProps = {
   title?: string
