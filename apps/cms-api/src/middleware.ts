@@ -2,10 +2,14 @@ import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
 import { jwt } from 'hono/jwt'
 
-// In a real application, use an environment variable.
-const JWT_SECRET = 'a-very-secret-key'
+type Bindings = {
+  JWT_SECRET: string;
+  DB: D1Database; // D1 Database 바인딩
+  KV: KVNamespace; // KV Namespace 바인딩
+}
 
 type Env = {
+    Bindings: Bindings; // Bindings를 Env 타입의 일부로 포함
     Variables: {
         tenantId: string
     }
@@ -17,14 +21,17 @@ export const tenantIdentification = createMiddleware<Env>(async (c, next) => {
         throw new HTTPException(400, { message: 'Host header is required' })
     }
 
-    // In a real application, you would look up the tenantId from a database or a KV store.
-    // For now, we'll use a placeholder.
-    const tenantId = 'placeholder-tenant-id'
+    // 실제 Cloudflare KV에서 테넌트 ID를 조회하도록 변경
+    const tenantId = await c.env.KV.get(`domain:${hostname}`);
+    if (!tenantId) {
+        throw new HTTPException(404, { message: `Tenant not found for domain: ${hostname}` });
+    }
 
     c.set('tenantId', tenantId)
     await next()
 })
 
 export const authMiddleware = jwt({
-    secret: JWT_SECRET,
+    // c.env.JWT_SECRET 사용
+    secret: (c) => c.env.JWT_SECRET,
 })

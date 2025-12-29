@@ -1,23 +1,25 @@
 import { Hono } from 'hono'
 import { sign } from 'hono/jwt'
 
-const app = new Hono()
+// Cloudflare Workers 환경 변수 타입을 정의합니다.
+// (나중에 shared/types 등으로 이동할 수 있습니다.)
+type Bindings = {
+  JWT_SECRET: string;
+}
 
-// In a real application, use an environment variable.
-const JWT_SECRET = 'a-very-secret-key'
+const app = new Hono<{ Bindings: Bindings }>()
 
 app.post('/login', async (c) => {
     const { email, password } = await c.req.json()
 
-    // In a real application, you would verify the credentials against the database.
-    // For now, we'll use a dummy user.
     if (email === 'admin@example.com' && password === 'password') {
         const payload = {
             sub: email,
             role: 'admin',
             exp: Math.floor(Date.now() / 1000) + 60 * 60, // Expires in 1 hour
         }
-        const token = await sign(payload, JWT_SECRET)
+        // c.env.JWT_SECRET 사용
+        const token = await sign(payload, c.env.JWT_SECRET)
         return c.json({ token })
     }
 
