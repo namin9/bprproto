@@ -1,6 +1,7 @@
 /** @jsxImportSource hono/jsx */
 import { Hono } from 'hono'
 import { marked } from 'marked'
+import adminUi from '../../cms-api/src/admin'
 
 type Bindings = {
   API_URL: string
@@ -192,5 +193,8 @@ app.get('/post/:slug', async (c) => {
     </Layout>
   )
 })
+
+// Admin UI 마운트 (Pages 도메인에서도 /admin 접근 가능)
+app.route('/admin', adminUi as any)
 
 export default app

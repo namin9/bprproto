@@ -4,7 +4,7 @@ import { AppEnv } from './index'
 
 const admin = new Hono<AppEnv>()
 
-const Layout = ({ title, headContent, children }: { title: string; headContent?: any; children: any }) => (
+const Layout = ({ title, headContent, children, apiUrl }: { title: string; headContent?: any; children: any; apiUrl?: string }) => (
     <html lang="ko">
         <head>
             <meta charset="UTF-8" />
@@ -41,18 +41,20 @@ const Layout = ({ title, headContent, children }: { title: string; headContent?:
                 };
                 // API Fetch Wrapper with Auto Refresh
                 window.apiFetch = async (url, options = {}) => {
+                    const apiUrl = '${apiUrl || ''}';
+                    const fullUrl = url.startsWith('http') ? url : apiUrl + url;
                     let token = localStorage.getItem('accessToken');
                     const headers = { ...options.headers, 'Authorization': 'Bearer ' + token };
                     if (!(options.body instanceof FormData) && !headers['Content-Type']) {
                         headers['Content-Type'] = 'application/json';
                     }
-                    let res = await fetch(url, { ...options, headers });
+                    let res = await fetch(fullUrl, { ...options, headers });
                     
                     // Access Token 만료 시 리프레시 시도
                     if (res.status === 401 && !url.includes('/auth/')) {
                         const refreshToken = localStorage.getItem('refreshToken');
                         if (refreshToken) {
-                            const refreshRes = await fetch('/auth/refresh', {
+                            const refreshRes = await fetch(apiUrl + '/auth/refresh', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ refreshToken })
@@ -77,8 +79,9 @@ const Layout = ({ title, headContent, children }: { title: string; headContent?:
 )
 
 admin.get('/login', (c) => {
+    const apiUrl = (c.env as any).API_URL || '';
     return c.html(
-        <Layout title="로그인">
+        <Layout title="로그인" apiUrl={apiUrl}>
             <div class="flex items-center justify-center min-h-screen">
                 <div class="p-8 bg-white rounded shadow-md w-96">
                     <h1 class="text-2xl font-bold mb-6 text-center">BPR CMS 관리자</h1>
@@ -98,11 +101,12 @@ admin.get('/login', (c) => {
                     <script dangerouslySetInnerHTML={{ __html: `
                         document.getElementById('login-form').onsubmit = async (e) => {
                             e.preventDefault();
+                            const apiUrl = '${apiUrl || ''}';
                             const btn = e.target.querySelector('button');
                             setLoading(btn, true, '로그인 중...');
                             const formData = new FormData(e.target);
                             const data = Object.fromEntries(formData);
-                            const res = await fetch('/auth/login', {
+                            const res = await fetch(apiUrl + '/auth/login', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(data)
@@ -125,8 +129,9 @@ admin.get('/login', (c) => {
 })
 
 admin.get('/dashboard', (c) => {
+    const apiUrl = (c.env as any).API_URL || '';
     return c.html(
-        <Layout title="대시보드">
+        <Layout title="대시보드" apiUrl={apiUrl}>
             <nav class="bg-white shadow-sm p-4">
                 <div class="max-w-7xl mx-auto flex justify-between items-center">
                     <span class="font-bold text-xl">BPR Admin</span>
@@ -183,8 +188,9 @@ admin.get('/dashboard', (c) => {
 
 // 게시글 목록 페이지
 admin.get('/articles', (c) => {
+    const apiUrl = (c.env as any).API_URL || '';
     return c.html(
-        <Layout title="게시글 관리">
+        <Layout title="게시글 관리" apiUrl={apiUrl}>
             <div class="max-w-7xl mx-auto p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h1 class="text-2xl font-bold">게시글 목록</h1>
@@ -243,6 +249,7 @@ admin.get('/articles', (c) => {
 
 // 새 게시글 작성 페이지
 admin.get('/articles/new', (c) => {
+    const apiUrl = (c.env as any).API_URL || '';
     const head = (
         <>
             <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
@@ -254,7 +261,7 @@ admin.get('/articles/new', (c) => {
         </>
     )
     return c.html(
-        <Layout title="새 글 작성" headContent={head}>
+        <Layout title="새 글 작성" headContent={head} apiUrl={apiUrl}>
             <div class="max-w-4xl mx-auto p-6">
                 <h1 class="text-2xl font-bold mb-6">새 게시글 작성</h1>
                 <form id="article-form" class="space-y-4 bg-white p-6 rounded shadow">
@@ -314,6 +321,7 @@ admin.get('/articles/new', (c) => {
 
 // 게시글 수정 페이지
 admin.get('/articles/:id', (c) => {
+    const apiUrl = (c.env as any).API_URL || '';
     const id = c.req.param('id');
     const head = (
         <>
@@ -326,7 +334,7 @@ admin.get('/articles/:id', (c) => {
         </>
     )
     return c.html(
-        <Layout title="게시글 수정" headContent={head}>
+        <Layout title="게시글 수정" headContent={head} apiUrl={apiUrl}>
             <div class="max-w-4xl mx-auto p-6">
                 <h1 class="text-2xl font-bold mb-6">게시글 수정</h1>
                 <form id="edit-article-form" class="space-y-4 bg-white p-6 rounded shadow">
@@ -407,8 +415,9 @@ admin.get('/articles/:id', (c) => {
 
 // 미디어 라이브러리 페이지 (클라이언트 사이드 WebP 변환 포함)
 admin.get('/media', (c) => {
+    const apiUrl = (c.env as any).API_URL || '';
     return c.html(
-        <Layout title="미디어 라이브러리">
+        <Layout title="미디어 라이브러리" apiUrl={apiUrl}>
             <div class="max-w-7xl mx-auto p-6">
                 <h1 class="text-2xl font-bold mb-6">미디어 업로드</h1>
                 <div class="bg-white p-6 rounded shadow mb-6">
@@ -488,8 +497,9 @@ admin.get('/media', (c) => {
 
 // 사이트 설정 페이지
 admin.get('/settings', (c) => {
+    const apiUrl = (c.env as any).API_URL || '';
     return c.html(
-        <Layout title="사이트 설정">
+        <Layout title="사이트 설정" apiUrl={apiUrl}>
             <div class="max-w-4xl mx-auto p-6">
                 <h1 class="text-2xl font-bold mb-6">사이트 설정</h1>
                 <form id="settings-form" class="space-y-6 bg-white p-6 rounded shadow">
