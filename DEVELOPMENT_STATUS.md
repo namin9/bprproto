@@ -105,7 +105,8 @@
 
 ### 주요 해결 과제
 - **Pages 빌드 오류**: `dist` 디렉토리를 찾지 못하는 문제는 `pnpm build` 명령을 통해 Vite가 `_worker.js`를 생성하도록 하여 해결했습니다.
-- **Lockfile 불일치 해결 `cms-api`에서 미디어 URL을 절대 경로로 반환하도록 수정하여 Pages 도메인에서도 이미지가 정상 출력됩니다.
+- **Lockfile 불일치 해결**: 패키지 버전 불일치(`@hono/vite-build`) 수정 및 GitHub Actions를 통한 `pnpm-lock.yaml` 자동 갱신 파이프라인 구축 완료.
+- **CORS 및 절대 경로**: `cms-api`에서 미디어 URL을 절대 경로로 반환하도록 수정하여 Pages 도메인에서도 이미지가 정상 출력됩니다.
 
 ### 수동 작업 (최초 1회)
 1. Cloudflare 대시보드에서 `pbr1` Worker의 **Settings > Variables**에 `JWT_SECRET`과 `PASSWORD_SALT`를 추가하세요.
