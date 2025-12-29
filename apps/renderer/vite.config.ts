@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
-import { cloudflarePages } from '@hono/vite-build'
+import build from '@hono/vite-build/cloudflare-pages'
 
 export default defineConfig({
   plugins: [
-    cloudflarePages({
-      entry: 'src/index.tsx'
+    build({
+      entry: 'src/index.tsx',
     })
   ],
   build: {
