@@ -117,10 +117,17 @@ app.get('/setup', async (c) => {
         where: and(eq(admins.email, email), eq(admins.tenantId, tenantId))
     });
 
-    if (existing) return c.json({ message: 'Admin already exists' });
-
     const passwordHash = await hashPassword(password, c.env.PASSWORD_SALT);
     
+    if (existing) {
+        // 기존 계정이 있으면 현재 솔트로 비밀번호 해시 업데이트
+        await c.var.db.update(admins)
+            .set({ passwordHash })
+            .where(and(eq(admins.id, existing.id), eq(admins.tenantId, tenantId)));
+        
+        return c.json({ message: 'Admin password updated to default', credentials: { email, password } });
+    }
+
     await c.var.db.insert(admins).values({
         id: crypto.randomUUID(),
         tenantId,
