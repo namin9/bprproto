@@ -8,6 +8,9 @@ export default defineConfig({
     })
   ],
   build: {
-    minify: true
+    minify: true,
+    rollupOptions: {
+      external: ['__STATIC_CONTENT_MANIFEST']
+    }
   }
 })

@@ -1,11 +1,22 @@
 name = "bpr-renderer"
-compatibility_date = "2024-07-12"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
 
 # 테넌트 데이터를 공유하기 위해 cms-api와 동일한 KV ID를 바인딩합니다.
 [[kv_namespaces]]
 binding = "KV"
 id = "6555098de28846408be31acc085153f0"
+
+# adminUi가 내부적으로 참조할 수 있으므로 D1 및 R2 바인딩을 추가합니다.
+[[d1_databases]]
+binding = "DB"
+database_name = "bpr-db"
+database_id = "88f19d76-fc8d-4435-9254-f338dfebbeac"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "bpr-r2"
 
 [vars]
 API_URL = "https://pbr1.koolee1372.workers.dev" # 실제 배포된 cms-api URL로 변경 필요
