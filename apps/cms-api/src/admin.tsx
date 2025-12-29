@@ -42,7 +42,7 @@ const Layout = ({ title, headContent, children, apiUrl }: { title: string; headC
                 };
                 // API Fetch Wrapper with Auto Refresh
                 window.apiFetch = async (url, options = {}) => {
-                    const apiUrl = '${apiUrl || ''}';
+                    const apiUrl = '${apiUrl?.replace(/\/$/, '') || ''}';
                     const fullUrl = url.startsWith('http') ? url : apiUrl + url;
                     let token = localStorage.getItem('accessToken');
                     const headers = { ...options.headers, 'Authorization': 'Bearer ' + token };
