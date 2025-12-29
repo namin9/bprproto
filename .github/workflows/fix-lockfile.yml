@@ -1,0 +1,24 @@
+name: Fix Pnpm Lockfile
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  fix-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - name: Update Lockfile
+        run: pnpm install --no-frozen-lockfile
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update pnpm-lock.yaml via GitHub Actions"

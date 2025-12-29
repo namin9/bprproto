@@ -1,4 +1,4 @@
-# 엔터프라이즈 정적 CMS 프로젝트 개발 현황 (2025-12-30, 빌드 이슈 해결 중)
+# 엔터프라이즈 정적 CMS 프로젝트 개발 현황 (2025-12-30, 최종 배포 및 안정화 단계)
 
 이 문서는 엔터프라이즈 정적 CMS 프로젝트의 현재 개발 현황을 요약합니다.
 
@@ -105,10 +105,10 @@
 
 ### 주요 해결 과제
 - **Pages 빌드 오류**: `dist` 디렉토리를 찾지 못하는 문제는 `pnpm build` 명령을 통해 Vite가 `_worker.js`를 생성하도록 하여 해결했습니다.
-- **Lockfile 불일치 (진행 중)**: 의존성 추가 후 `pnpm-lock.yaml`이 업데이트되지 않아 CI 빌드가 실패하는 현상 발생. `--no-frozen-lockfile` 옵션으로 해결 예정.
+- **Lockfile 불일치 해결**: GitHub Actions(`fix-lockfile.yml`)를 통해 `pnpm-lock.yaml`을 자동으로 업데이트하고 커밋하는 체계를 구축했습니다.
 - **CORS 및 절대 경로**: `cms-api`에서 미디어 URL을 절대 경로로 반환하도록 수정하여 Pages 도메인에서도 이미지가 정상 출력됩니다.
 
 ### 수동 작업 (최초 1회)
 1. Cloudflare 대시보드에서 `pbr1` Worker의 **Settings > Variables**에 `JWT_SECRET`과 `PASSWORD_SALT`를 추가하세요.
-2. `bprproto` Pages의 **Settings > Environment variables**에 `API_URL` (pbr1의 주소)을 추가하고, 빌드 명령을 수정하세요 (아래 참고).
+2. `bprproto` Pages의 **Settings > Builds & deployments**에서 빌드 명령을 `pnpm install --no-frozen-lockfile && pnpm build`로 수정하세요.
 3. D1 데이터베이스에 테스트용 테넌트와 관리자 데이터를 Console에서 직접 입력하세요.
