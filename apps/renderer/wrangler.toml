@@ -1,6 +1,6 @@
 name = "bpr-renderer"
 compatibility_date = "2024-07-12"
-pages_build_output_dir = "dist"
+pages_build_output_dir = "."
 
 # 테넌트 데이터를 공유하기 위해 cms-api와 동일한 KV ID를 바인딩합니다.
 [[kv_namespaces]]

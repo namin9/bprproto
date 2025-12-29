@@ -91,7 +91,8 @@
   - **현재 오류 (Authentication error [code: 10000])**: Cloudflare Pages 대시보드의 **Build command**에 `deploy` 명령어가 포함되어 발생한 인증 오류입니다.
   - **해결 방법**: 
     1. Cloudflare Pages 대시보드 설정에서 **Build command**를 비우거나 `pnpm build`만 입력하세요. (명령어에 `wrangler`를 넣지 마세요.)
-    2. **Root Directory** 설정:
+    2. **wrangler.toml 수정**: `pages_build_output_dir`을 `.`으로 변경하여 빌드 과정 없이 현재 디렉토리를 배포하도록 설정했습니다.
+    3. **Root Directory** 설정:
        - `bpr1` (Worker): `apps/cms-api`
        - `bprproto` (Pages): `apps/renderer`
-    3. **Build output directory**: `.` (루트)로 설정하세요.
+    4. **Build output directory**: `.` (루트)로 설정하세요.
