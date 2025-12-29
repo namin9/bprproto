@@ -4,6 +4,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   fix-lock:
     runs-on: ubuntu-latest
@@ -17,7 +20,7 @@ jobs:
           node-version: 22
           cache: 'pnpm'
       - name: Update Lockfile
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --no-frozen-lockfile --ignore-scripts
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
