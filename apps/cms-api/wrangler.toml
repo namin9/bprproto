@@ -1,4 +1,4 @@
-name = "cms-api"
+name = "pbr1"
 main = "src/index.ts"
 compatibility_date = "2024-07-12"
 
