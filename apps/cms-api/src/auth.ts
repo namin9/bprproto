@@ -107,4 +107,33 @@ app.post('/refresh', async (c) => {
     }
 })
 
+// 초기 관리자 생성을 위한 셋업 API (테스트 후 삭제 권장)
+app.get('/setup', async (c) => {
+    const tenantId = c.get('tenantId');
+    const email = 'admin@example.com';
+    const password = 'password123'; // 초기 비밀번호
+
+    const existing = await c.var.db.query.admins.findFirst({
+        where: and(eq(admins.email, email), eq(admins.tenantId, tenantId))
+    });
+
+    if (existing) return c.json({ message: 'Admin already exists' });
+
+    const passwordHash = await hashPassword(password, c.env.PASSWORD_SALT);
+    
+    await c.var.db.insert(admins).values({
+        id: crypto.randomUUID(),
+        tenantId,
+        email,
+        passwordHash,
+        role: 'SUPER_ADMIN',
+        createdAt: Math.floor(Date.now() / 1000),
+    });
+
+    return c.json({ 
+        message: 'Initial admin created', 
+        credentials: { email, password } 
+    });
+})
+
 export default app

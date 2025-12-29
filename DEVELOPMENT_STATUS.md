@@ -112,3 +112,8 @@
 1. Cloudflare 대시보드에서 `pbr1` Worker의 **Settings > Variables**에 `JWT_SECRET`과 `PASSWORD_SALT`를 추가하세요.
 2. `bprproto` Pages의 **Settings > Builds & deployments**에서 빌드 명령을 `pnpm install --no-frozen-lockfile && pnpm build`로 수정하세요.
 3. D1 데이터베이스에 테스트용 테넌트와 관리자 데이터를 Console에서 직접 입력하세요.
+
+### 🔐 초기 로그인 정보 (Setup API 실행 후)
+- **URL**: `https://bprproto.pages.dev/admin/login`
+- **이메일**: `admin@example.com`
+- **비밀번호**: `password123`
