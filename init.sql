@@ -32,6 +32,7 @@ CREATE TABLE articles (
     author_id TEXT NOT NULL,
     post_type TEXT NOT NULL DEFAULT 'BLOG',
     title TEXT NOT NULL,
+    slug TEXT NOT NULL,
     content TEXT,
     thumbnail_url TEXT,
     seo_meta TEXT,
@@ -40,7 +41,8 @@ CREATE TABLE articles (
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-    FOREIGN KEY (author_id) REFERENCES admins(id)
+    FOREIGN KEY (author_id) REFERENCES admins(id),
+    UNIQUE(tenant_id, slug)
 );
 
 CREATE TABLE _article_categories (

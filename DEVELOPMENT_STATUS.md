@@ -1,4 +1,4 @@
-# 개발 현황 체크리스트 (2025-12-29 업데이트)
+# 엔터프라이즈 정적 CMS 프로젝트 개발 현황 (2025-12-30, Phase 4 완료 및 테스트 준비)
 
 이 문서는 엔터프라이즈 정적 CMS 프로젝트의 현재 개발 현황을 요약합니다.
 
@@ -19,31 +19,48 @@
     - [x] `tenants`, `admins`, `categories`, `articles`의 모든 CRUD API를 실제 D1 데이터베이스 쿼리 로직으로 **완전 대체**.
 
 - [x] **`renderer`: 기본 구현**
-  - [x] Hono 기반 프로젝트 초기화.
-  - [x] `cms-api`에서 콘텐츠를 가져오는 더미 로직 구현.
+  - [x] Hono 기반 프로젝트 초기화 및 Cloudflare Pages 배포 구조 설정.
+  - [x] `cms-api` 연동을 위한 기본 Fetcher 로직 골격 구현.
 
-## 주의사항 및 수동 작업
+## 기술 부채 및 해결이 필요한 이슈 (Technical Debt)
 
-- [ ] **데이터베이스 스키마 적용**
-  - **문제**: `drizzle-kit` 도구가 현재 환경에서 불안정하여 자동 마이그레이션 파일 생성이 실패했습니다.
-  - **해결책**: 이 문제를 우회하기 위해 프로젝트 루트에 `init.sql` 파일을 생성했습니다. 이 SQL 파일은 D1 데이터베이스에 직접 실행하여 테이블을 생성할 수 있습니다.
-  - **필요한 수동 작업**: Cloudflare 대시보드나 `wrangler d1 execute` 명령어를 통해 `init.sql` 파일의 내용을 D1 데이터베이스(`bpr-db`)에 실행해야 합니다.
+- [ ] **데이터베이스 마이그레이션 자동화**
+  - **현황**: `drizzle-kit` 불안정으로 인해 `init.sql`을 통한 수동 관리 중.
+  - **해결**: `drizzle-kit` 버전 업데이트 또는 Cloudflare 환경에 최적화된 마이그레이션 워크플로우 재설계 필요.
 
-- [ ] **Git 동기화 문제**
-  - **문제**: 로컬 저장소와 원격 저장소 간의 동기화가 필요합니다 (`git pull`).
-  - **필요한 수동 작업**: `git push`를 하기 전에 `git pull`을 실행하여 원격 저장소의 변경 사항을 먼저 가져와야 합니다.
+- [ ] **보안 강화 (Security)**
+  - **현황**: `admins` 비밀번호 해싱 유틸리티(`crypto.ts`) 구현 및 API 적용 완료.
+  - **해결**: `PASSWORD_SALT` 환경 변수 설정 필요.
 
-## 후속 개발 작업 (Next Steps)
+- [ ] **환경 변수 관리 최적화**
+  - **현황**: `renderer`의 `API_URL` 등이 하드코딩되어 있거나 관리가 미흡함.
+  - **해결**: `wrangler.toml` 환경별 설정 분리 및 `secrets` 전환.
 
-1.  **API 로직 고도화**:
-    - `admins` API의 비밀번호 생성 및 업데이트 시, 실제 비밀번호 해싱(e.g., Argon2, Bcrypt) 로직을 구현해야 합니다. (현재는 `"dummy_hashed_password"`로 되어 있음)
+## 향후 로드맵 (Roadmap)
 
-2.  **`renderer` 기능 개선**:
-    - `renderer`의 `index.ts`에 하드코딩된 `API_URL`을 Cloudflare 환경 변수나 다른 동적인 방법으로 가져오도록 수정해야 합니다.
-    - 실제 `cms-api`를 호출하여 가져온 데이터를 기반으로 페이지를 렌더링하는 로직을 구현해야 합니다.
+### Phase 1: 보안 및 인증 완성 (Done)
+- [x] **실제 비밀번호 해싱 구현**: `Web Crypto API` 연동 완료.
+- [x] **D1 스키마 정의**: `init.sql` 작성 완료. (실행 대기 중)
+- [x] **로그인 API 구현**: `auth.ts` 내 비밀번호 검증 로직 추가 완료.
+- [x] **환경 변수 설정**: `JWT_SECRET`, `PASSWORD_SALT` 설정 체계 마련.
 
-3.  **`drizzle-kit` 문제 해결**:
-    - 장기적인 유지보수를 위해 `drizzle-kit`이 정상적으로 동작하도록 환경을 재구성하거나 다른 해결책을 모색할 필요가 있습니다.
+### Phase 2: 콘텐츠 모델링 및 관계 고도화 (Done)
+- [x] **다대다(Many-to-Many) 관계 구현**: 게시글-카테고리 매핑 API 로직 완료.
+- [x] **콘텐츠 게시 워크플로우**: `isPublic` 상태에 따른 `publishedAt` 자동 설정 로직 적용.
+- [x] **테넌트 격리 강화**: `admins`, `categories`, `articles` API 전반에 `tenantId` 필터링 적용.
 
-4.  **기능 확장**:
-    - 기술 설계 문서에 명시된 다대다(many-to-many) 관계 처리(e.g., 게시글에 카테고리 연결), 콘텐츠 게시 워크플로, 사용자 역할 기반 접근 제어 등 추가 기능을 구현합니다.
+### Phase 3: Renderer 연동 및 배포 최적화 (Done)
+- [x] **Public API 엔드포인트**: Renderer가 인증 없이(테넌트 식별만으로) 접근 가능한 API 구축 완료.
+- [x] **Renderer 캐싱 전략**: Cloudflare Cache API를 사용하여 Public API 응답 캐싱 적용 완료.
+
+### Phase 4: 미디어 관리 및 관리자 UI (Done)
+- [x] **R2 스토리지 연동**: `media.ts`를 통한 이미지 업로드 API 구현 완료.
+- [x] **이미지 최적화**: 프론트엔드(Admin UI)에서 Canvas API를 이용한 WebP 변환 및 업로드 로직 구현 완료.
+- [x] **Admin UI**: 로그인, 대시보드, 게시글 관리, 미디어 라이브러리 기능 구현 및 API 연동 완료.
+
+## 수동 작업 체크리스트
+
+- [ ] `git pull` 실행 (원격 저장소 동기화)
+- [ ] `wrangler d1 execute bpr-db --file=./init.sql` (로컬/원격 DB 초기화)
+- [ ] `wrangler secret put JWT_SECRET` (인증 키 설정)
+- [ ] `wrangler secret put PASSWORD_SALT` (비밀번호 해싱용 솔트 설정)

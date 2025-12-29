@@ -2,22 +2,27 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { admins } from '@bprproto/db/schema' // 공유 스키마에서 admins 테이블 임포트
 import { adminSchema } from '@bprproto/types' // 공유 타입에서 adminSchema 임포트
-import { eq } from 'drizzle-orm' // Drizzle ORM의 equal 조건자 임포트
+import { eq, and } from 'drizzle-orm'
 import { AppEnv } from './index'; // index.ts에서 정의한 AppEnv 임포트
+import { hashPassword } from './utils/crypto';
 
 const app = new Hono<AppEnv>()
 
 // 모든 관리자 조회
 app.get('/', async (c) => {
-    const allAdmins = await c.var.db.query.admins.findMany();
+    const tenantId = c.get('tenantId');
+    const allAdmins = await c.var.db.query.admins.findMany({
+        where: eq(admins.tenantId, tenantId)
+    });
     return c.json(allAdmins);
 })
 
 // 단일 관리자 조회
 app.get('/:id', async (c) => {
     const id = c.req.param('id');
+    const tenantId = c.get('tenantId');
     const admin = await c.var.db.query.admins.findFirst({
-        where: eq(admins.id, id),
+        where: and(eq(admins.id, id), eq(admins.tenantId, tenantId)),
     });
 
     if (!admin) {
@@ -29,18 +34,22 @@ app.get('/:id', async (c) => {
 // 관리자 생성
 app.post('/', async (c) => {
     const body = await c.req.json();
-    const parsed = adminSchema.omit({ id: true, createdAt: true }).safeParse(body); // ID와 타임스탬프는 DB에서 생성
+    const parsed = adminSchema.omit({ id: true, tenantId: true, createdAt: true }).safeParse(body);
     if (!parsed.success) {
         throw new HTTPException(400, { message: parsed.error.issues.map(issue => issue.message).join(', ') });
     }
 
-    // 실제로는 여기에 비밀번호 해싱 로직이 필요합니다.
-    const passwordHash = "dummy_hashed_password"; // TODO: 실제 비밀번호 해싱 로직 구현
+    // 비밀번호 해싱 처리 (PASSWORD_SALT 환경 변수 사용)
+    if (!body.password) {
+        throw new HTTPException(400, { message: 'Password is required' });
+    }
+    const passwordHash = await hashPassword(body.password, c.env.PASSWORD_SALT);
 
     const newAdmin = await c.var.db.insert(admins).values({
         ...parsed.data,
+        tenantId: c.get('tenantId'),
         id: crypto.randomUUID(), // UUID 생성
-        passwordHash: passwordHash,
+        passwordHash,
         createdAt: Math.floor(Date.now() / 1000),
     }).returning();
 
@@ -51,17 +60,21 @@ app.post('/', async (c) => {
 app.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
-    const parsed = adminSchema.omit({ id: true, createdAt: true }).partial().safeParse(body);
+    const parsed = adminSchema.omit({ id: true, tenantId: true, createdAt: true }).partial().safeParse(body);
     if (!parsed.success) {
         throw new HTTPException(400, { message: parsed.error.issues.map(issue => issue.message).join(', ') });
     }
 
+    const updateData: any = { ...parsed.data };
+
+    // 비밀번호가 요청에 포함된 경우에만 해싱하여 업데이트
+    if (body.password) {
+        updateData.passwordHash = await hashPassword(body.password, c.env.PASSWORD_SALT);
+    }
+
     const updatedAdmin = await c.var.db.update(admins)
-        .set({
-            ...parsed.data,
-            // 비밀번호 해싱 로직은 별도로 처리해야 합니다.
-        })
-        .where(eq(admins.id, id))
+        .set(updateData)
+        .where(and(eq(admins.id, id), eq(admins.tenantId, c.get('tenantId'))))
         .returning();
 
     if (!updatedAdmin.length) {
@@ -74,7 +87,9 @@ app.put('/:id', async (c) => {
 // 관리자 삭제
 app.delete('/:id', async (c) => {
     const id = c.req.param('id');
-    const deletedAdmin = await c.var.db.delete(admins).where(eq(admins.id, id)).returning();
+    const deletedAdmin = await c.var.db.delete(admins)
+        .where(and(eq(admins.id, id), eq(admins.tenantId, c.get('tenantId'))))
+        .returning();
 
     if (!deletedAdmin.length) {
         throw new HTTPException(404, { message: 'Admin not found' });

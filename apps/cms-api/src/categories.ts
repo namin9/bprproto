@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { categories } from '@bprproto/db/schema' // 공유 스키마에서 categories 테이블 임포트
-import { eq } from 'drizzle-orm' // Drizzle ORM의 equal 조건자 임포트
+import { eq, and } from 'drizzle-orm'
 import { AppEnv } from './index'; // index.ts에서 정의한 AppEnv 임포트
 import { z } from 'zod'; // 임시 유효성 검사를 위해 Zod 임포트
 
@@ -15,15 +15,19 @@ const categoryInputSchema = z.object({
 
 // 모든 카테고리 조회
 app.get('/', async (c) => {
-    const allCategories = await c.var.db.query.categories.findMany();
+    const tenantId = c.get('tenantId');
+    const allCategories = await c.var.db.query.categories.findMany({
+        where: eq(categories.tenantId, tenantId)
+    });
     return c.json(allCategories);
 })
 
 // 단일 카테고리 조회
 app.get('/:id', async (c) => {
     const id = Number(c.req.param('id')); // id는 integer
+    const tenantId = c.get('tenantId');
     const category = await c.var.db.query.categories.findFirst({
-        where: eq(categories.id, id),
+        where: and(eq(categories.id, id), eq(categories.tenantId, tenantId)),
     });
 
     if (!category) {
@@ -59,7 +63,7 @@ app.put('/:id', async (c) => {
 
     const updatedCategory = await c.var.db.update(categories)
         .set(parsed.data)
-        .where(eq(categories.id, id))
+        .where(and(eq(categories.id, id), eq(categories.tenantId, c.get('tenantId'))))
         .returning();
 
     if (!updatedCategory.length) {
@@ -72,7 +76,9 @@ app.put('/:id', async (c) => {
 // 카테고리 삭제
 app.delete('/:id', async (c) => {
     const id = Number(c.req.param('id'));
-    const deletedCategory = await c.var.db.delete(categories).where(eq(categories.id, id)).returning();
+    const deletedCategory = await c.var.db.delete(categories)
+        .where(and(eq(categories.id, id), eq(categories.tenantId, c.get('tenantId'))))
+        .returning();
 
     if (!deletedCategory.length) {
         throw new HTTPException(404, { message: 'Category not found' });

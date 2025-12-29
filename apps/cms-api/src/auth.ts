@@ -1,29 +1,59 @@
 import { Hono } from 'hono'
 import { sign } from 'hono/jwt'
+import { HTTPException } from 'hono/http-exception'
+import { admins } from '@bprproto/db/schema'
+import { eq, and } from 'drizzle-orm'
+import { AppEnv } from './index'
+import { hashPassword } from './utils/crypto'
 
-// Cloudflare Workers 환경 변수 타입을 정의합니다.
-// (나중에 shared/types 등으로 이동할 수 있습니다.)
-type Bindings = {
-  JWT_SECRET: string;
-}
+const app = new Hono<AppEnv>()
 
-const app = new Hono<{ Bindings: Bindings }>()
-
+// 로그인 API
 app.post('/login', async (c) => {
-    const { email, password } = await c.req.json()
+    const { email, password } = await c.req.json();
+    const tenantId = c.get('tenantId');
 
-    if (email === 'admin@example.com' && password === 'password') {
-        const payload = {
-            sub: email,
-            role: 'admin',
-            exp: Math.floor(Date.now() / 1000) + 60 * 60, // Expires in 1 hour
-        }
-        // c.env.JWT_SECRET 사용
-        const token = await sign(payload, c.env.JWT_SECRET)
-        return c.json({ token })
+    if (!email || !password) {
+        throw new HTTPException(400, { message: 'Email and password are required' });
     }
 
-    return c.json({ message: 'Invalid credentials' }, 401)
+    // 1. 해당 테넌트의 관리자 조회
+    const admin = await c.var.db.query.admins.findFirst({
+        where: and(
+            eq(admins.email, email),
+            eq(admins.tenantId, tenantId)
+        ),
+    });
+
+    if (!admin) {
+        throw new HTTPException(401, { message: 'Invalid credentials' });
+    }
+
+    // 2. 비밀번호 검증
+    const inputHash = await hashPassword(password, c.env.PASSWORD_SALT);
+    if (inputHash !== admin.passwordHash) {
+        throw new HTTPException(401, { message: 'Invalid credentials' });
+    }
+
+    // 3. JWT 발급
+    const payload = {
+        sub: admin.id,
+        email: admin.email,
+        tenantId: admin.tenantId,
+        role: admin.role,
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 24시간 유지
+    };
+
+    const token = await sign(payload, c.env.JWT_SECRET);
+
+    return c.json({
+        token,
+        admin: {
+            id: admin.id,
+            email: admin.email,
+            role: admin.role
+        }
+    });
 })
 
 export default app

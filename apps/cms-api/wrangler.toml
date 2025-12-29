@@ -12,3 +12,8 @@ database_id = "88f19d76-fc8d-4435-9254-f338dfebbeac"
 [[kv_namespaces]]
 binding = "KV" # i.e. c.env.KV
 id = "6555098de28846408be31acc085153f0"
+
+# R2 Bucket binding
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "bpr-r2"
