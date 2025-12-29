@@ -9,6 +9,7 @@ const Layout = ({ title, headContent, children, apiUrl }: { title: string; headC
         <head>
             <meta charset="UTF-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
             <title>{title} - BPR Admin</title>
             <script src="https://cdn.tailwindcss.com"></script>
             {headContent}

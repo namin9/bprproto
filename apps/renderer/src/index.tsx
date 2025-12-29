@@ -18,6 +18,9 @@ type TenantTheme = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
+// Favicon handler to prevent 404 errors in logs
+app.get('/favicon.ico', (c) => c.text('', 204))
+
 // 정적 자산 서빙 설정 (/static/* 경로로 public 폴더 내 파일 접근 가능)
 app.use('/static/*', serveStatic())
 
