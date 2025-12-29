@@ -40,7 +40,9 @@ app.post('/upload', async (c) => {
 
         // 업로드된 파일의 URL 반환 (R2 커스텀 도메인 또는 워커 프록시 주소)
         // 실제 운영 환경에서는 R2 버킷에 연결된 도메인 주소를 사용해야 합니다.
-        const publicUrl = `/api/media/view/${tenantId}/${fileUuid}.${extension}`;
+        const url = new URL(c.req.url);
+        const baseUrl = `${url.protocol}//${url.host}`;
+        const publicUrl = `${baseUrl}/api/media/view/${tenantId}/${fileUuid}.${extension}`;
 
         return c.json({ url: publicUrl, fileName }, 201);
     } catch (e) {

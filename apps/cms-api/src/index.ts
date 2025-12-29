@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { cache } from 'hono/cache'
+import { HTTPException } from 'hono/http-exception'
 import { tenantIdentification, authMiddleware, Env as MiddlewareEnv } from './middleware' // Env 임포트
 import auth from './auth'
 import tenants from './tenants'
@@ -10,8 +11,8 @@ import categories from './categories'
 import media from './media'
 import tenantSettings from './tenant-settings'
 import { getDb } from './db' // getDb 임포트
-import { articles as articlesTable } from '@bprproto/db/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { articles as articlesTable, categories as categoriesTable, admins as adminsTable } from '@bprproto/db/schema'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import adminUi from './admin'
 
 // MiddlewareEnv 타입에서 Bindings를 가져옵니다.
@@ -28,6 +29,17 @@ const app = new Hono<AppEnv>()
 
 // Cloudflare Pages 프론트엔드와의 통신을 위한 CORS 설정
 app.use('*', cors())
+
+// 글로벌 에러 핸들러: 모든 예외를 캡처하여 로깅 및 응답 처리
+app.onError((err, c) => {
+    console.error(`[Global Error]: ${err.message}`, err.stack);
+    
+    if (err instanceof HTTPException) {
+        return err.getResponse();
+    }
+    
+    return c.json({ message: 'Internal Server Error', error: err.message }, 500);
+});
 
 // Drizzle DB 인스턴스를 생성하고 context에 주입하는 미들웨어
 app.use('*', async (c, next) => {
@@ -50,6 +62,25 @@ api.get('/me', (c) => {
     const payload = c.get('jwtPayload')
     return c.json({ user: payload })
 })
+
+// 대시보드 통계 API
+api.get('/stats', async (c) => {
+    const tenantId = c.get('tenantId');
+    const db = c.var.db;
+
+    // 병렬 쿼리로 통계 데이터 조회
+    const [articleCount, categoryCount, adminCount] = await Promise.all([
+        db.select({ count: sql<number>`count(*)` }).from(articlesTable).where(eq(articlesTable.tenantId, tenantId)),
+        db.select({ count: sql<number>`count(*)` }).from(categoriesTable).where(eq(categoriesTable.tenantId, tenantId)),
+        db.select({ count: sql<number>`count(*)` }).from(adminsTable).where(eq(adminsTable.tenantId, tenantId)),
+    ]);
+
+    return c.json({
+        articles: articleCount[0].count,
+        categories: categoryCount[0].count,
+        admins: adminCount[0].count,
+    });
+});
 
 // Public API for Renderer
 const publicApi = new Hono<AppEnv>()

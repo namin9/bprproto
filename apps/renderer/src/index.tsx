@@ -102,6 +102,10 @@ app.get('/', async (c) => {
   const host = c.req.header('host')
   const theme = await getTenantTheme(c)
   
+  if (!theme) {
+    return c.html(<Layout title="404 Not Found"><div className="text-center py-20"><h1 className="text-2xl font-bold">등록되지 않은 사이트입니다.</h1><p className="text-slate-500 mt-2">도메인 설정을 확인해주세요.</p></div></Layout>, 404)
+  }
+
   // API 호출 시 현재 접속한 Host 정보를 전달하여 테넌트 식별 유도
   const res = await fetch(`${apiUrl}/public/articles`, {
     headers: { 'x-forwarded-host': host || '' }
@@ -153,6 +157,10 @@ app.get('/post/:slug', async (c) => {
   const slug = c.req.param('slug')
   const host = c.req.header('host')
   const theme = await getTenantTheme(c)
+
+  if (!theme) {
+    return c.notFound()
+  }
 
   const res = await fetch(`${apiUrl}/public/articles/${slug}`, {
     headers: { 'x-forwarded-host': host || '' }

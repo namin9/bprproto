@@ -1,4 +1,4 @@
-# 엔터프라이즈 정적 CMS 프로젝트 개발 현황 (2025-12-30, Phase 6 완료)
+# 엔터프라이즈 정적 CMS 프로젝트 개발 현황 (2025-12-30, 클라우드 배포 테스트 단계)
 
 이 문서는 엔터프라이즈 정적 CMS 프로젝트의 현재 개발 현황을 요약합니다.
 
@@ -24,17 +24,17 @@
 
 ## 기술 부채 및 해결이 필요한 이슈 (Technical Debt)
 
-- [ ] **데이터베이스 마이그레이션 자동화**
-  - **현황**: `drizzle-kit` 불안정으로 인해 `init.sql`을 통한 수동 관리 중.
-  - **해결**: `drizzle-kit` 버전 업데이트 또는 Cloudflare 환경에 최적화된 마이그레이션 워크플로우 재설계 필요.
+- [x] **데이터베이스 마이그레이션 자동화**
+  - **현황**: `drizzle-kit` 설정 완료 및 D1 연동 체계 구축.
+  - **해결**: `drizzle.config.ts`를 통해 스키마 변경 사항을 관리하고 `wrangler d1 migrations`를 활용하도록 개선.
 
 - [ ] **보안 강화 (Security)**
-  - **현황**: `admins` 비밀번호 해싱 유틸리티(`crypto.ts`) 구현 및 API 적용 완료.
-  - **해결**: `PASSWORD_SALT` 환경 변수 설정 필요.
+  - **현황**: 비밀번호 해싱 및 JWT 리프레시 토큰 시스템 도입 완료. `wrangler secret`을 통한 키 관리 체계 수립.
+  - **해결**: 정기적인 시크릿 로테이션 가이드 마련 및 토큰 탈취 대응 시나리오 구축 필요.
 
 - [ ] **환경 변수 관리 최적화**
-  - **현황**: `renderer`의 `API_URL` 등이 하드코딩되어 있거나 관리가 미흡함.
-  - **해결**: `wrangler.toml` 환경별 설정 분리 및 `secrets` 전환.
+  - **현황**: `renderer` 및 `cms-api`에서 환경별 BASE_URL 및 API_URL 연동 구조 개선 완료.
+  - **해결**: `wrangler.toml`의 `[vars]`를 통해 환경별 엔드포인트 관리 중.
 
 ## 배포 아키텍처 (Deployment Architecture)
 - **API 서버 (Backend)**: Cloudflare Workers (`apps/cms-api`)
@@ -77,6 +77,7 @@
 ### Phase 6: 성능 및 인프라 최적화 (Done)
 - [x] **R2 이미지 리사이징**: Worker를 통한 동적 이미지 서빙 및 쿼리 기반 리사이징 로직 구현.
 - [x] **LCP 최적화**: Renderer 목록 페이지에서 최적화된 크기의 썸네일을 불러오도록 개선.
+- [x] **배포 환경 최적화**: Cloudflare Pages의 빌드 없는 배포(Root Directory 전략) 설정 완료.
 
 ## 수동 작업 체크리스트
 
@@ -85,14 +86,19 @@
 - [ ] `wrangler secret put JWT_SECRET` (인증 키 설정)
 - [ ] `wrangler secret put PASSWORD_SALT` (비밀번호 해싱용 솔트 설정)
 
+### Phase 7: 유지보수 및 자동화 (In Progress)
+- [x] **Drizzle Kit 설정**: 마이그레이션 자동화를 위한 `drizzle.config.ts` 구성 완료.
+- [x] **Admin UI UX 고도화**: 토스트 메시지 알림 및 버튼 로딩 상태 구현 완료.
+- [x] **시스템 모니터링 및 통계**: 글로벌 에러 핸들러 도입 및 대시보드 동적 통계 연동 완료.
+- [ ] **통합 테스트**: Cloudflare 배포 환경 기반 전체 워크플로우 검증 (진행 중).
+
 ## 배포 참고 사항 (Deployment Notes)
 
 - **Renderer (Cloudflare Pages)**: Pages 프로젝트(`pbr2`) 배포 시 `wrangler deploy` 대신 `wrangler pages deploy` 명령어를 사용해야 합니다.
-  - **현재 오류 (Authentication error [code: 10000])**: Cloudflare Pages 대시보드의 **Build command**에 `deploy` 명령어가 포함되어 발생한 인증 오류입니다.
+  - **빌드 오류 해결**: `pages_build_output_dir`을 `.`으로 설정하여 별도의 빌드 과정 없이 소스 디렉토리를 직접 배포하도록 구성했습니다.
   - **해결 방법**: 
     1. Cloudflare Pages 대시보드 설정에서 **Build command**를 비우거나 `pnpm build`만 입력하세요. (명령어에 `wrangler`를 넣지 마세요.)
-    2. **wrangler.toml 수정**: `pages_build_output_dir`을 `.`으로 변경하여 빌드 과정 없이 현재 디렉토리를 배포하도록 설정했습니다.
-    3. **Root Directory** 설정:
+    2. **Root Directory** 설정:
        - `bpr1` (Worker): `apps/cms-api`
        - `bprproto` (Pages): `apps/renderer`
-    4. **Build output directory**: `.` (루트)로 설정하세요.
+    3. **Build output directory**: `.` (루트)로 설정하세요.

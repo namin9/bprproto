@@ -14,6 +14,63 @@ const Layout = ({ title, headContent, children }: { title: string; headContent?:
             {headContent}
         </head>
         <body class="bg-gray-100 min-h-screen">
+            <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+            <script dangerouslySetInnerHTML={{ __html: `
+                window.showToast = (message, type = 'success') => {
+                    const container = document.getElementById('toast-container');
+                    const toast = document.createElement('div');
+                    const bgColor = type === 'error' ? 'bg-red-600' : 'bg-green-600';
+                    toast.className = \`px-6 py-3 rounded shadow-lg text-white transition-all duration-500 transform translate-y-10 opacity-0 \${bgColor}\`;
+                    toast.textContent = message;
+                    container.appendChild(toast);
+                    setTimeout(() => { toast.classList.remove('translate-y-10', 'opacity-0'); }, 10);
+                    setTimeout(() => {
+                        toast.classList.add('opacity-0');
+                        setTimeout(() => toast.remove(), 500);
+                    }, 3000);
+                };
+                window.setLoading = (btn, isLoading, loadingText = '처리 중...') => {
+                    if (isLoading) {
+                        btn.dataset.originalText = btn.textContent;
+                        btn.disabled = true;
+                        btn.textContent = loadingText;
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = btn.dataset.originalText;
+                    }
+                };
+                // API Fetch Wrapper with Auto Refresh
+                window.apiFetch = async (url, options = {}) => {
+                    let token = localStorage.getItem('accessToken');
+                    const headers = { ...options.headers, 'Authorization': 'Bearer ' + token };
+                    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+                        headers['Content-Type'] = 'application/json';
+                    }
+                    let res = await fetch(url, { ...options, headers });
+                    
+                    // Access Token 만료 시 리프레시 시도
+                    if (res.status === 401 && !url.includes('/auth/')) {
+                        const refreshToken = localStorage.getItem('refreshToken');
+                        if (refreshToken) {
+                            const refreshRes = await fetch('/auth/refresh', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ refreshToken })
+                            });
+                            if (refreshRes.ok) {
+                                const { accessToken } = await refreshRes.json();
+                                localStorage.setItem('accessToken', accessToken);
+                                headers['Authorization'] = 'Bearer ' + accessToken;
+                                res = await fetch(url, { ...options, headers });
+                            } else {
+                                localStorage.clear();
+                                location.href = '/admin/login';
+                            }
+                        }
+                    }
+                    return res;
+                };
+            `}} />
             {children}
         </body>
     </html>
@@ -41,6 +98,8 @@ admin.get('/login', (c) => {
                     <script dangerouslySetInnerHTML={{ __html: `
                         document.getElementById('login-form').onsubmit = async (e) => {
                             e.preventDefault();
+                            const btn = e.target.querySelector('button');
+                            setLoading(btn, true, '로그인 중...');
                             const formData = new FormData(e.target);
                             const data = Object.fromEntries(formData);
                             const res = await fetch('/auth/login', {
@@ -48,12 +107,14 @@ admin.get('/login', (c) => {
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(data)
                             });
+                            setLoading(btn, false);
                             if (res.ok) {
-                                const { token } = await res.json();
-                                localStorage.setItem('token', token);
+                                const { accessToken, refreshToken } = await res.json();
+                                localStorage.setItem('accessToken', accessToken);
+                                localStorage.setItem('refreshToken', refreshToken);
                                 location.href = '/admin/dashboard';
                             } else {
-                                alert('로그인 실패');
+                                showToast('로그인에 실패했습니다. 정보를 확인해주세요.', 'error');
                             }
                         };
                     `}} />
@@ -71,7 +132,7 @@ admin.get('/dashboard', (c) => {
                     <span class="font-bold text-xl">BPR Admin</span>
                     <div class="flex items-center space-x-4">
                         <span id="user-email" class="text-sm text-gray-600"></span>
-                        <button onclick="localStorage.removeItem('token'); location.href='/admin/login'" class="text-sm text-red-600">로그아웃</button>
+                        <button onclick="localStorage.clear(); location.href='/admin/login'" class="text-sm text-red-600">로그아웃</button>
                     </div>
                 </div>
             </nav>
@@ -79,28 +140,41 @@ admin.get('/dashboard', (c) => {
                 <h2 class="text-2xl font-semibold mb-4">환영합니다!</h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="bg-white p-6 rounded shadow">
-                        <h3 class="font-bold mb-2">콘텐츠 관리</h3>
-                        <p class="text-gray-600 text-sm mb-4">게시글을 작성하고 관리합니다.</p>
+                        <h3 class="font-bold mb-2 text-gray-500 uppercase text-xs tracking-wider">전체 게시글</h3>
+                        <p id="stat-articles" class="text-3xl font-bold mb-4">-</p>
                         <a href="/admin/articles" class="text-blue-600 hover:underline">이동하기 &rarr;</a>
                     </div>
                     <div class="bg-white p-6 rounded shadow">
-                        <h3 class="font-bold mb-2">미디어 라이브러리</h3>
-                        <p class="text-gray-600 text-sm mb-4">이미지를 업로드하고 관리합니다.</p>
+                        <h3 class="font-bold mb-2 text-gray-500 uppercase text-xs tracking-wider">카테고리</h3>
+                        <p id="stat-categories" class="text-3xl font-bold mb-4">-</p>
                         <a href="/admin/media" class="text-blue-600 hover:underline">이동하기 &rarr;</a>
                     </div>
                     <div class="bg-white p-6 rounded shadow">
-                        <h3 class="font-bold mb-2">사이트 설정</h3>
-                        <p class="text-gray-600 text-sm mb-4">테마, 도메인 등 사이트 전반의 설정을 관리합니다.</p>
+                        <h3 class="font-bold mb-2 text-gray-500 uppercase text-xs tracking-wider">관리자 계정</h3>
+                        <p id="stat-admins" class="text-3xl font-bold mb-4">-</p>
                         <a href="/admin/settings" class="text-blue-600 hover:underline">이동하기 &rarr;</a>
                     </div>
                 </div>
             </main>
             <script dangerouslySetInnerHTML={{ __html: `
-                const token = localStorage.getItem('token');
-                if (!token) location.href = '/admin/login';
+                const accessToken = localStorage.getItem('accessToken');
+                if (!accessToken) location.href = '/admin/login';
                 
+                async function loadStats() {
+                    try {
+                        const res = await apiFetch('/api/stats');
+                        const stats = await res.json();
+                        document.getElementById('stat-articles').textContent = stats.articles;
+                        document.getElementById('stat-categories').textContent = stats.categories;
+                        document.getElementById('stat-admins').textContent = stats.admins;
+                    } catch (err) {
+                        console.error('Failed to load stats');
+                    }
+                }
+                loadStats();
+
                 // 간단한 토큰 체크 (실제로는 /api/me 호출 권장)
-                const payload = JSON.parse(atob(token.split('.')[1]));
+                const payload = JSON.parse(atob(accessToken.split('.')[1]));
                 document.getElementById('user-email').textContent = payload.email;
             `}} />
         </Layout>
@@ -134,10 +208,7 @@ admin.get('/articles', (c) => {
             </div>
             <script dangerouslySetInnerHTML={{ __html: `
                 async function loadArticles() {
-                    const token = localStorage.getItem('token');
-                    const res = await fetch('/api/articles', {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
+                    const res = await apiFetch('/api/articles');
                     const articles = await res.json();
                     const tbody = document.getElementById('articles-list');
                     tbody.innerHTML = articles.map(a => \`
@@ -154,16 +225,13 @@ admin.get('/articles', (c) => {
 
                 async function deleteArticle(id, title) {
                     if (!confirm(\`'\${title}' 게시글을 삭제하시겠습니까?\`)) return;
-                    const token = localStorage.getItem('token');
-                    const res = await fetch('/api/articles/' + id, {
-                        method: 'DELETE',
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
+                    showToast('삭제 중...');
+                    const res = await apiFetch('/api/articles/' + id, { method: 'DELETE' });
                     if (res.ok) {
-                        alert('삭제되었습니다.');
+                        showToast('게시글이 삭제되었습니다.');
                         loadArticles();
                     } else {
-                        alert('삭제 실패');
+                        showToast('삭제에 실패했습니다.', 'error');
                     }
                 }
 
@@ -220,23 +288,23 @@ admin.get('/articles/new', (c) => {
 
                 document.getElementById('article-form').onsubmit = async (e) => {
                     e.preventDefault();
+                    const btn = e.target.querySelector('button');
+                    setLoading(btn, true, '저장 중...');
                     const formData = new FormData(e.target);
                     const data = Object.fromEntries(formData);
                     data.isPublic = formData.get('isPublic') === 'on';
                     data.content = easymde.value();
                     
-                    const res = await fetch('/api/articles', {
+                    const res = await apiFetch('/api/articles', {
                         method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + localStorage.getItem('token')
-                        },
                         body: JSON.stringify(data)
                     });
+                    setLoading(btn, false);
                     if (res.ok) {
+                        showToast('게시글이 저장되었습니다.');
                         location.href = '/admin/articles';
                     } else {
-                        alert('저장 실패');
+                        showToast('저장에 실패했습니다.', 'error');
                     }
                 };
             `}} />
@@ -294,14 +362,11 @@ admin.get('/articles/:id', (c) => {
                 });
 
                 const articleId = "${id}";
-                const token = localStorage.getItem('token');
 
                 async function loadArticle() {
-                    const res = await fetch('/api/articles/' + articleId, {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
+                    const res = await apiFetch('/api/articles/' + articleId);
                     if (!res.ok) {
-                        alert('게시글을 불러오지 못했습니다.');
+                        showToast('게시글을 불러오지 못했습니다.', 'error');
                         location.href = '/admin/articles';
                         return;
                     }
@@ -314,24 +379,23 @@ admin.get('/articles/:id', (c) => {
 
                 document.getElementById('edit-article-form').onsubmit = async (e) => {
                     e.preventDefault();
+                    const btn = e.target.querySelector('button[type="submit"]');
+                    setLoading(btn, true, '수정 중...');
                     const formData = new FormData(e.target);
                     const data = Object.fromEntries(formData);
                     data.isPublic = document.getElementById('edit-isPublic').checked;
                     data.content = easymde.value();
                     
-                    const res = await fetch('/api/articles/' + articleId, {
+                    const res = await apiFetch('/api/articles/' + articleId, {
                         method: 'PUT',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + token
-                        },
                         body: JSON.stringify(data)
                     });
+                    setLoading(btn, false);
                     if (res.ok) {
-                        alert('수정되었습니다.');
+                        showToast('게시글이 수정되었습니다.');
                         location.href = '/admin/articles';
                     } else {
-                        alert('수정 실패');
+                        showToast('수정에 실패했습니다.', 'error');
                     }
                 };
 
@@ -398,23 +462,20 @@ admin.get('/media', (c) => {
                     formData.append('file', optimizedBlob, originalName + '.webp');
 
                     try {
-                        const res = await fetch('/api/media/upload', {
+                        const res = await apiFetch('/api/media/upload', {
                             method: 'POST',
-                            headers: { 
-                                'Authorization': 'Bearer ' + localStorage.getItem('token')
-                            },
                             body: formData
                         });
                         
                         if (res.ok) {
                             const result = await res.json();
-                            alert('업로드 성공! URL: ' + result.url);
+                            showToast('이미지가 업로드되었습니다.');
                             location.reload();
                         } else {
-                            alert('업로드 실패');
+                            showToast('업로드에 실패했습니다.', 'error');
                         }
                     } catch (err) {
-                        alert('오류 발생');
+                        showToast('오류가 발생했습니다.', 'error');
                     } finally {
                         uploadBtn.disabled = false;
                         uploadBtn.textContent = '최적화 및 업로드';
@@ -470,10 +531,7 @@ admin.get('/settings', (c) => {
                 colorText.oninput = (e) => colorPicker.value = e.target.value;
 
                 async function loadSettings() {
-                    const token = localStorage.getItem('token');
-                    const res = await fetch('/api/settings', {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
+                    const res = await apiFetch('/api/settings');
                     if (!res.ok) return;
                     
                     const data = await res.json();
@@ -488,6 +546,8 @@ admin.get('/settings', (c) => {
 
                 document.getElementById('settings-form').onsubmit = async (e) => {
                     e.preventDefault();
+                    const btn = e.target.querySelector('button');
+                    setLoading(btn, true, '저장 중...');
                     const formData = new FormData(e.target);
                     const payload = {
                         name: formData.get('name'),
@@ -498,20 +558,17 @@ admin.get('/settings', (c) => {
                         }
                     };
                     
-                    const res = await fetch('/api/settings', {
+                    const res = await apiFetch('/api/settings', {
                         method: 'PUT',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + localStorage.getItem('token')
-                        },
                         body: JSON.stringify(payload)
                     });
                     
+                    setLoading(btn, false);
                     if (res.ok) {
-                        alert('설정이 저장되었습니다.');
-                        location.reload();
+                        showToast('설정이 저장되었습니다.');
+                        setTimeout(() => location.reload(), 1000);
                     } else {
-                        alert('저장 실패');
+                        showToast('저장에 실패했습니다.', 'error');
                     }
                 };
 

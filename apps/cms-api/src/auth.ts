@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { sign } from 'hono/jwt'
+import { sign, verify } from 'hono/jwt'
 import { HTTPException } from 'hono/http-exception'
 import { admins } from '@bprproto/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -36,24 +36,75 @@ app.post('/login', async (c) => {
     }
 
     // 3. JWT 발급
-    const payload = {
+    const accessTokenPayload = {
         sub: admin.id,
         email: admin.email,
         tenantId: admin.tenantId,
         role: admin.role,
-        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 24시간 유지
+        exp: Math.floor(Date.now() / 1000) + 60 * 15, // 15분 (Access Token)
     };
 
-    const token = await sign(payload, c.env.JWT_SECRET);
+    const refreshTokenPayload = {
+        sub: admin.id,
+        tenantId: admin.tenantId,
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7일 (Refresh Token)
+    };
+
+    const accessToken = await sign(accessTokenPayload, c.env.JWT_SECRET);
+    const refreshToken = await sign(refreshTokenPayload, c.env.JWT_SECRET);
+
+    // KV에 리프레시 토큰 저장 (무효화 및 보안 검증용)
+    await c.env.KV.put(`rt:${admin.tenantId}:${admin.id}`, refreshToken, {
+        expirationTtl: 60 * 60 * 24 * 7
+    });
 
     return c.json({
-        token,
+        accessToken,
+        refreshToken,
         admin: {
             id: admin.id,
             email: admin.email,
             role: admin.role
         }
     });
+})
+
+// 토큰 갱신 API
+app.post('/refresh', async (c) => {
+    const { refreshToken } = await c.req.json();
+    if (!refreshToken) throw new HTTPException(400, { message: 'Refresh token required' });
+
+    try {
+        const payload = await verify(refreshToken, c.env.JWT_SECRET);
+        const adminId = payload.sub as string;
+        const tenantId = payload.tenantId as string;
+
+        // KV에서 저장된 토큰과 일치하는지 확인
+        const storedToken = await c.env.KV.get(`rt:${tenantId}:${adminId}`);
+        if (storedToken !== refreshToken) {
+            throw new HTTPException(401, { message: 'Invalid refresh token' });
+        }
+
+        // 관리자 정보 재조회 (최신 권한 등 반영)
+        const admin = await c.var.db.query.admins.findFirst({
+            where: and(eq(admins.id, adminId), eq(admins.tenantId, tenantId))
+        });
+
+        if (!admin) throw new HTTPException(401, { message: 'Admin not found' });
+
+        // 새로운 Access Token 발급
+        const newAccessToken = await sign({
+            sub: admin.id,
+            email: admin.email,
+            tenantId: admin.tenantId,
+            role: admin.role,
+            exp: Math.floor(Date.now() / 1000) + 60 * 15,
+        }, c.env.JWT_SECRET);
+
+        return c.json({ accessToken: newAccessToken });
+    } catch (e) {
+        throw new HTTPException(401, { message: 'Invalid or expired refresh token' });
+    }
 })
 
 export default app
