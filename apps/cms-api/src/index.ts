@@ -48,6 +48,9 @@ app.use('*', async (c, next) => {
     await next();
 });
 
+// Favicon handler to prevent 404 noise in logs
+app.get('/favicon.ico', (c) => c.text('', 204))
+
 
 // Tenant identification for all routes
 app.use('*', tenantIdentification)
