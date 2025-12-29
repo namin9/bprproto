@@ -1,5 +1,6 @@
 packages:
   - 'apps/cms-api'
+  - 'apps/renderer'
   - 'packages/shared/db'
   - 'packages/shared/types'
   - 'packages/shared/utils'
