@@ -8,4 +8,4 @@ binding = "KV"
 id = "6555098de28846408be31acc085153f0"
 
 [vars]
-API_URL = "https://pbr1.your-subdomain.workers.dev" # 실제 배포된 cms-api URL로 변경 필요
+API_URL = "pbr1.koolee1372.workers.dev" # 실제 배포된 cms-api URL로 변경 필요
