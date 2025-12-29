@@ -11,7 +11,7 @@ import categories from './categories'
 import media from './media'
 import tenantSettings from './tenant-settings'
 import { getDb } from './db' // getDb 임포트
-import { articles as articlesTable, categories as categoriesTable, admins as adminsTable } from '@bprproto/db/schema'
+import { articles as articlesTable, categories as categoriesTable, admins as adminsTable, tenants as tenantsTable } from '@bprproto/db/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import adminUi from './admin'
 
@@ -50,6 +50,32 @@ app.use('*', async (c, next) => {
 
 // Favicon handler to prevent 404 noise in logs
 app.get('/favicon.ico', (c) => c.text('', 204))
+
+// System Bootstrap Route (Bypasses tenant identification for first-time setup)
+app.get('/bootstrap', async (c) => {
+    const tenantId = 'test-tenant-id';
+    try {
+        // 1. Create initial tenant in D1
+        await c.var.db.insert(tenantsTable).values({
+            id: tenantId,
+            name: 'BPR CMS Site',
+            slug: 'test-site',
+            customDomain: 'bprproto.pages.dev',
+        }).onConflictDoNothing();
+
+        // 2. Create KV mappings for both domains
+        await c.env.KV.put(`domain:bprproto.pages.dev`, tenantId);
+        await c.env.KV.put(`domain:pbr1.koolee1372.workers.dev`, tenantId);
+
+        return c.json({ 
+            message: 'Bootstrap successful. KV mappings created.', 
+            mappedDomains: ['bprproto.pages.dev', 'pbr1.koolee1372.workers.dev'],
+            tenantId 
+        });
+    } catch (e: any) {
+        return c.json({ message: 'Bootstrap failed', error: e.message }, 500);
+    }
+});
 
 
 // Tenant identification for all routes
